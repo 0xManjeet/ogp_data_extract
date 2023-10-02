@@ -1,7 +1,7 @@
 name: ogp_data_extract
-description: This is a new package project for extracting ogp data on web pages. This library allows you to retrieve metadata items defined in "The Open Graph protocol".
+description: Use original library from pub.dev :)
 version: 0.1.4
-homepage: https://github.com/KINTO-JP/ogp_data_extract
+homepage: https://github.com/0xManjeet/ogp_data_extract
 
 environment:
   sdk: ">=3.0.5 <4.0.0"
