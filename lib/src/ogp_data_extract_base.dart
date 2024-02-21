@@ -1,11 +1,8 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'dart:convert';
-
+import 'package:dio/dio.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as parser;
-import 'package:http/http.dart' as http;
 import 'package:ogp_data_extract/ogp_data_extract.dart';
-import 'package:ogp_data_extract/utility/user_agent_client.dart';
 import 'package:string_validator/string_validator.dart';
 
 class UrlInfo {
@@ -27,17 +24,37 @@ class OgpDataExtract {
       return null;
     }
 
-    final UserAgentClient client = UserAgentClient(userAgent, http.Client());
-    final http.Response response = await client.get(Uri.parse(url));
-    if (response.statusCode != 200) {
+    // final UserAgentClient client = UserAgentClient(userAgent, http.Client());
+    final Dio dio = Dio(
+      BaseOptions(
+        headers: {
+          'User-Agent': userAgent,
+        },
+        sendTimeout: const Duration(seconds: 2),
+        connectTimeout: const Duration(seconds: 2),
+        receiveTimeout: const Duration(seconds: 2),
+      ),
+    );
+    // final res = await dio.get(url, options: Options());
+    // we only need headers
+    var res = await dio.head(url);
+
+    if (res.statusCode != 200) {
       return null;
     }
 
-    final Document? document = toDocument(response);
+    final contentType = res.headers['content-type']?.firstOrNull;
+    if (contentType != null && contentType.contains('text/html')) {
+      res = await dio.get(url);
+      if (res.statusCode != 200) {
+        return null;
+      }
+    }
 
-    final contentType = response.headers['content-type'];
+    final Document? document = toDocument(res);
+
     final contentLength =
-        int.tryParse(response.headers['content-length'] ?? '');
+        int.tryParse((res.headers['content-length']?.firstOrNull) ?? '');
     final ogpData = document != null ? OgpDataParser(document).parse() : null;
 
     return UrlInfo(
@@ -48,10 +65,10 @@ class OgpDataExtract {
   }
 
   /// returns [html.Document] from [http.Response].
-  static Document? toDocument(http.Response response) {
+  static Document? toDocument(Response response) {
     Document? document;
     try {
-      document = parser.parse(utf8.decode(response.bodyBytes));
+      document = parser.parse(response.data);
     } catch (err) {
       return null;
     }
