@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as parser;
 import 'package:ogp_data_extract/ogp_data_extract.dart';
@@ -20,48 +21,53 @@ class OgpDataExtract {
   /// returns [OgpData] from [url] and [userAgent].
   static Future<UrlInfo?> execute(String url,
       {String userAgent = 'bot'}) async {
-    if (!isURL(url)) {
-      return null;
-    }
+    try {
+      if (!isURL(url)) {
+        return null;
+      }
 
-    // final UserAgentClient client = UserAgentClient(userAgent, http.Client());
-    final Dio dio = Dio(
-      BaseOptions(
-        headers: {
-          'User-Agent': userAgent,
-        },
-        sendTimeout: const Duration(seconds: 2),
-        connectTimeout: const Duration(seconds: 2),
-        receiveTimeout: const Duration(seconds: 2),
-      ),
-    );
-    // final res = await dio.get(url, options: Options());
-    // we only need headers
-    var res = await dio.head(url);
+      // final UserAgentClient client = UserAgentClient(userAgent, http.Client());
+      final Dio dio = Dio(
+        BaseOptions(
+          headers: {
+            'User-Agent': userAgent,
+          },
+          sendTimeout: const Duration(seconds: 2),
+          connectTimeout: const Duration(seconds: 2),
+          receiveTimeout: const Duration(seconds: 2),
+        ),
+      );
+      // final res = await dio.get(url, options: Options());
+      // we only need headers
+      var res = await dio.head(url);
 
-    if (res.statusCode != 200) {
-      return null;
-    }
-
-    final contentType = res.headers['content-type']?.firstOrNull;
-    if (contentType != null && contentType.contains('text/html')) {
-      res = await dio.get(url);
       if (res.statusCode != 200) {
         return null;
       }
+
+      final contentType = res.headers['content-type']?.firstOrNull;
+      if (contentType != null && contentType.contains('text/html')) {
+        res = await dio.get(url);
+        if (res.statusCode != 200) {
+          return null;
+        }
+      }
+
+      final Document? document = toDocument(res);
+
+      final contentLength =
+          int.tryParse((res.headers['content-length']?.firstOrNull) ?? '');
+      final ogpData = document != null ? OgpDataParser(document).parse() : null;
+
+      return UrlInfo(
+        contentLength: contentLength,
+        contentType: contentType,
+        ogpData: ogpData,
+      );
+    } catch (e) {
+      debugPrint('OgpDataExtract.execute: $e');
+      return null;
     }
-
-    final Document? document = toDocument(res);
-
-    final contentLength =
-        int.tryParse((res.headers['content-length']?.firstOrNull) ?? '');
-    final ogpData = document != null ? OgpDataParser(document).parse() : null;
-
-    return UrlInfo(
-      contentLength: contentLength,
-      contentType: contentType,
-      ogpData: ogpData,
-    );
   }
 
   /// returns [html.Document] from [http.Response].
